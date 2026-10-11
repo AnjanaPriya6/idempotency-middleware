@@ -71,7 +71,15 @@ public class IdempotencyFilter extends OncePerRequestFilter {
         }
 
         // First time seeing this key, IN_PROGRESS
-        boolean acquired = idempotencyService.setInProgress(idempotencyKey);
+        //fall back safe
+        boolean acquired;
+        try {
+            acquired = idempotencyService.setInProgress(idempotencyKey);
+        } catch (Exception e) {
+            log.error("Redis unavailable, failing open for key: {}", idempotencyKey, e);
+            filterChain.doFilter(request, response);
+            return;
+        }
         if (!acquired) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             response.setContentType("application/json");
@@ -83,12 +91,17 @@ public class IdempotencyFilter extends OncePerRequestFilter {
 
         try {
             filterChain.doFilter(request, wrappedResponse);
-        } finally {
-            String responseBody = new String(wrappedResponse.getContentAsByteArray());
-            int httpStatus = wrappedResponse.getStatus();
+        }  finally {
+        String responseBody = new String(wrappedResponse.getContentAsByteArray());
+        int httpStatus = wrappedResponse.getStatus();
+        if (httpStatus >= 200 && httpStatus < 300) {
             idempotencyService.markCompleted(idempotencyKey, httpStatus, responseBody);
             log.info("Stored completed response for idempotency key: {}", idempotencyKey);
-            wrappedResponse.copyBodyToResponse();
+        } else {
+            idempotencyService.delete(idempotencyKey);
+            log.warn("Request failed with status {}, removing idempotency key: {}", httpStatus, idempotencyKey);
         }
+        wrappedResponse.copyBodyToResponse();
+    }
     }
 }

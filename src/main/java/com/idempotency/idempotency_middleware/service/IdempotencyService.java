@@ -52,4 +52,8 @@ public class IdempotencyService {
             throw new RuntimeException("Failed to mark idempotency key completed", e);
         }
     }
+
+    public void delete(String key) {
+        redisTemplate.delete(KEY_PREFIX + key);
+    }
 }
