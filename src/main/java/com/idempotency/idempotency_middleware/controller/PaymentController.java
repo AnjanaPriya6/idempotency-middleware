@@ -1,5 +1,7 @@
 package com.idempotency.idempotency_middleware.controller;
 
+import com.idempotency.idempotency_middleware.model.PaymentRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,11 +16,11 @@ import java.util.UUID;
 public class PaymentController {
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createPayment(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<Map<String, Object>> createPayment(@Valid @RequestBody PaymentRequest request) {
         return ResponseEntity.ok(Map.of(
                 "paymentId", UUID.randomUUID().toString(),
                 "status", "SUCCESS",
-                "amount", request.getOrDefault("amount", 0)
+                "amount", request.getAmount()
         ));
     }
 }
